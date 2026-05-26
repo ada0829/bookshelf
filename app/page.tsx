@@ -1,44 +1,49 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/Header'
+import Toolbar from '@/components/Toolbar'
 import BookCard from '@/components/BookCard'
+import PostModal from '@/components/PostModal'
 import type { User } from '@supabase/supabase-js'
 
-export default function ProfilePage() {
-  const supabase = createClient()
-  const router = useRouter()
-  const params = useParams()
-  const username = decodeURIComponent(params.username as string)
+const COVERS = ['📚','🌿','🌊','🌙','🔮','🏔','🌸','🦋','☀️','🌎','🍂','🕯']
+const SPINES = ['#d4a853','#5a8a7a','#c46a50','#7a6aa0','#5a7a9a','#8a7060']
 
+export default function Home() {
+  const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set())
+  const [showModal, setShowModal] = useState(false)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('全部')
+  const [sort, setSort] = useState('newest')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.onAuthStateChange((_, session) => setUser(session?.user ?? null))
   }, [])
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      const { data: prof } = await supabase.from('profiles').select('*').eq('username', username).single()
-      setProfile(prof)
-      if (prof) {
-        const { data: ps } = await supabase.from('posts_with_stats').select('*').eq('user_id', prof.id).order('created_at', { ascending: false })
-        setPosts(ps || [])
-      }
-      setLoading(false)
-    }
-    load()
-  }, [username])
+  const fetchPosts = useCallback(async () => {
+    setLoading(true)
+    let query = supabase.from('posts_with_stats').select('*')
+    if (category !== '全部') query = query.eq('category', category)
+    if (search) query = query.or(`title.ilike.%${search}%,author.ilike.%${search}%,username.ilike.%${search}%`)
+    if (sort === 'newest') query = query.order('created_at', { ascending: false })
+    else if (sort === 'popular') query = query.order('like_count', { ascending: false })
+    else if (sort === 'rating') query = query.order('stars', { ascending: false })
+    const { data } = await query
+    setPosts(data || [])
+    setLoading(false)
+  }, [category, search, sort])
+
+  useEffect(() => { fetchPosts() }, [fetchPosts])
 
   useEffect(() => {
-    if (!user) return
+    if (!user) { setLikedIds(new Set()); setBookmarkedIds(new Set()); return }
     supabase.from('likes').select('post_id').eq('user_id', user.id)
       .then(({ data }) => setLikedIds(new Set(Array.from(data?.map(l => l.post_id) || []))))
     supabase.from('bookmarks').select('post_id').eq('user_id', user.id)
@@ -46,7 +51,7 @@ export default function ProfilePage() {
   }, [user])
 
   const handleLike = async (postId: number) => {
-    if (!user) return
+    if (!user) return alert('請先登入')
     const liked = likedIds.has(postId)
     if (liked) {
       await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
@@ -55,12 +60,11 @@ export default function ProfilePage() {
       await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
       setLikedIds(s => new Set(Array.from(s).concat(postId)))
     }
-    const { data: updated } = await supabase.from('posts_with_stats').select('*').eq('user_id', profile?.id).order('created_at', { ascending: false })
-    setPosts(updated || [])
+    fetchPosts()
   }
 
   const handleBookmark = async (postId: number) => {
-    if (!user) return
+    if (!user) return alert('請先登入')
     const bm = bookmarkedIds.has(postId)
     if (bm) {
       await supabase.from('bookmarks').delete().eq('user_id', user.id).eq('post_id', postId)
@@ -71,61 +75,33 @@ export default function ProfilePage() {
     }
   }
 
-  const totalLikes = posts.reduce((s, p) => s + (p.like_count || 0), 0)
-  const totalComments = posts.reduce((s, p) => s + (p.comment_count || 0), 0)
-  const isOwn = user && profile && user.id === profile.id
+  const handlePost = async (form: any) => {
+    if (!user) return
+    const emoji = COVERS[Math.floor(Math.random() * COVERS.length)]
+    const spineColor = SPINES[Math.floor(Math.random() * SPINES.length)]
+    await supabase.from('posts').insert({ user_id: user.id, ...form, emoji, spine_color: spineColor })
+    fetchPosts()
+  }
 
   return (
     <>
-      <Header user={user} onPost={() => router.push('/')} />
+      <Header user={user} onPost={() => setShowModal(true)} />
+      <Toolbar search={search} onSearch={setSearch} category={category} onCategory={setCategory} sort={sort} onSort={setSort} />
       <main style={{ maxWidth: 820, margin: '0 auto', padding: '1.5rem' }}>
-        <button onClick={() => router.push('/')}
-          style={{ background: 'none', border: '0.5px solid #e0d8c8', color: '#7a7468', padding: '6px 14px', borderRadius: 4, fontSize: 12, cursor: 'pointer', marginBottom: '1rem', fontFamily: "'Noto Sans TC', sans-serif" }}>
-          ← 返回主頁
-        </button>
-
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>載入中...</div>
-        ) : !profile ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>找不到此用戶</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>載入書單中...</div>
+        ) : posts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>還沒有書單，來第一個分享吧 📚</div>
         ) : (
-          <>
-            <div style={{ background: 'white', border: '0.5px solid #e0d8c8', borderRadius: 8, padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-              <div style={{ width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 500, background: profile.avatar_color + '22', color: profile.avatar_color, flexShrink: 0 }}>
-                {profile.initials}
-              </div>
-              <div>
-                <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{profile.username}</div>
-                {isOwn && <div style={{ fontSize: 11, color: '#b8b0a0', marginBottom: 8 }}>{user?.email}</div>}
-                <div style={{ display: 'flex', gap: 20 }}>
-                  {([['書單', posts.length], ['獲讚', totalLikes], ['留言', totalComments]] as [string, number][]).map(([l, n]) => (
-                    <div key={l} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 18, fontWeight: 500 }}>{n}</div>
-                      <div style={{ fontSize: 11, color: '#b8b0a0', letterSpacing: '0.06em' }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {posts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>還沒有分享任何書單 📚</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {posts.map(p => (
-                  <BookCard key={p.id} post={p}
-                    liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
-                    currentUser={user}
-                    onLike={() => handleLike(p.id)}
-                    onBookmark={() => handleBookmark(p.id)}
-                    onRefresh={() => {}}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {posts.map(p => (
+              <BookCard key={p.id} post={p} liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
+                currentUser={user} onLike={() => handleLike(p.id)} onBookmark={() => handleBookmark(p.id)} onRefresh={fetchPosts} />
+            ))}
+          </div>
         )}
       </main>
+      {showModal && <PostModal onClose={() => setShowModal(false)} onSubmit={handlePost} user={user} />}
     </>
   )
 }
