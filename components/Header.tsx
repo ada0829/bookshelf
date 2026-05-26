@@ -15,26 +15,31 @@ export default function Header({ user, onPost }: Props) {
   const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) { setProfile(null); return }
     supabase.from('profiles').select('*').eq('id', user.id).single()
       .then(({ data }) => setProfile(data))
   }, [user])
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    router.push('/')
     router.refresh()
   }
 
+  const goProfile = () => {
+    if (profile?.username) router.push(`/profile/${profile.username}`)
+  }
+
   return (
-    <header style={{ background: 'var(--ink)', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 58, position: 'sticky', top: 0, zIndex: 100 }}>
+    <header style={{ background: '#2c2a22', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 58, position: 'sticky', top: 0, zIndex: 100 }}>
       <div onClick={() => router.push('/')}
-        style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 20, fontWeight: 700, color: 'var(--amber)', letterSpacing: '0.05em', cursor: 'pointer' }}>
+        style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 20, fontWeight: 700, color: '#c47d2a', letterSpacing: '0.05em', cursor: 'pointer' }}>
         書架 <span style={{ color: '#f4f0e6', fontWeight: 400, fontSize: 13, marginLeft: 7, letterSpacing: '0.1em' }}>BOOKSHELF</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {user ? (
           <>
-            <button onClick={() => router.push(`/profile/${profile?.username || ''}`)}
+            <button onClick={goProfile}
               style={{ background: 'none', border: '0.5px solid #ffffff33', color: '#ccc', padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.04em' }}>
               {profile?.username || '我的書架'}
             </button>
@@ -43,13 +48,13 @@ export default function Header({ user, onPost }: Props) {
               登出
             </button>
             <button onClick={onPost}
-              style={{ background: 'var(--amber)', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
+              style={{ background: '#c47d2a', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
               ＋ 分享書單
             </button>
           </>
         ) : (
           <button onClick={() => router.push('/auth')}
-            style={{ background: 'var(--amber)', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
+            style={{ background: '#c47d2a', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
             登入 / 註冊
           </button>
         )}
