@@ -29,16 +29,12 @@ export default function Home() {
 
   const fetchPosts = useCallback(async () => {
     setLoading(true)
-    let query = supabase
-      .from('posts_with_stats')
-      .select('*')
-
+    let query = supabase.from('posts_with_stats').select('*')
     if (category !== '全部') query = query.eq('category', category)
     if (search) query = query.or(`title.ilike.%${search}%,author.ilike.%${search}%,username.ilike.%${search}%`)
     if (sort === 'newest') query = query.order('created_at', { ascending: false })
     else if (sort === 'popular') query = query.order('like_count', { ascending: false })
     else if (sort === 'rating') query = query.order('stars', { ascending: false })
-
     const { data } = await query
     setPosts(data || [])
     setLoading(false)
@@ -49,9 +45,9 @@ export default function Home() {
   useEffect(() => {
     if (!user) { setLikedIds(new Set()); setBookmarkedIds(new Set()); return }
     supabase.from('likes').select('post_id').eq('user_id', user.id)
-      .then(({ data }) => setLikedIds(new Set(data?.map(l => l.post_id) || [])))
+      .then(({ data }) => setLikedIds(new Set(Array.from(data?.map(l => l.post_id) || []))))
     supabase.from('bookmarks').select('post_id').eq('user_id', user.id)
-      .then(({ data }) => setBookmarkedIds(new Set(data?.map(b => b.post_id) || [])))
+      .then(({ data }) => setBookmarkedIds(new Set(Array.from(data?.map(b => b.post_id) || []))))
   }, [user])
 
   const handleLike = async (postId: number) => {
@@ -59,7 +55,7 @@ export default function Home() {
     const liked = likedIds.has(postId)
     if (liked) {
       await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
-      setLikedIds(s => { const n = new Set(s); n.delete(postId); return n })
+      setLikedIds(s => { const n = new Set(Array.from(s)); n.delete(postId); return n })
     } else {
       await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
       setLikedIds(s => new Set(Array.from(s).concat(postId)))
@@ -72,10 +68,10 @@ export default function Home() {
     const bm = bookmarkedIds.has(postId)
     if (bm) {
       await supabase.from('bookmarks').delete().eq('user_id', user.id).eq('post_id', postId)
-      setBookmarkedIds(s => { const n = new Set(s); n.delete(postId); return n })
+      setBookmarkedIds(s => { const n = new Set(Array.from(s)); n.delete(postId); return n })
     } else {
       await supabase.from('bookmarks').insert({ user_id: user.id, post_id: postId })
-      setBookmarkedIds(s => new Set(Array.from(s).concat(postId))
+      setBookmarkedIds(s => new Set(Array.from(s).concat(postId)))
     }
   }
 
@@ -83,48 +79,29 @@ export default function Home() {
     if (!user) return
     const emoji = COVERS[Math.floor(Math.random() * COVERS.length)]
     const spineColor = SPINES[Math.floor(Math.random() * SPINES.length)]
-    await supabase.from('posts').insert({
-      user_id: user.id, ...form, emoji, spine_color: spineColor
-    })
+    await supabase.from('posts').insert({ user_id: user.id, ...form, emoji, spine_color: spineColor })
     fetchPosts()
   }
 
   return (
     <>
       <Header user={user} onPost={() => setShowModal(true)} />
-      <Toolbar
-        search={search} onSearch={setSearch}
-        category={category} onCategory={setCategory}
-        sort={sort} onSort={setSort}
-      />
+      <Toolbar search={search} onSearch={setSearch} category={category} onCategory={setCategory} sort={sort} onSort={setSort} />
       <main style={{ maxWidth: 820, margin: '0 auto', padding: '1.5rem' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-lighter)' }}>載入書單中...</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>載入書單中...</div>
         ) : posts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-lighter)' }}>沒有找到符合的書單 📚</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>沒有找到符合的書單 📚</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {posts.map(p => (
-              <BookCard
-                key={p.id} post={p}
-                liked={likedIds.has(p.id)}
-                bookmarked={bookmarkedIds.has(p.id)}
-                currentUser={user}
-                onLike={() => handleLike(p.id)}
-                onBookmark={() => handleBookmark(p.id)}
-                onRefresh={fetchPosts}
-              />
+              <BookCard key={p.id} post={p} liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
+                currentUser={user} onLike={() => handleLike(p.id)} onBookmark={() => handleBookmark(p.id)} onRefresh={fetchPosts} />
             ))}
           </div>
         )}
       </main>
-      {showModal && (
-        <PostModal
-          onClose={() => setShowModal(false)}
-          onSubmit={handlePost}
-          user={user}
-        />
-      )}
+      {showModal && <PostModal onClose={() => setShowModal(false)} onSubmit={handlePost} user={user} />}
     </>
   )
 }
