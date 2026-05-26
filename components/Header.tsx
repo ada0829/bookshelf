@@ -26,35 +26,42 @@ export default function Header({ user, onPost }: Props) {
     router.refresh()
   }
 
-  const goProfile = () => {
-    if (profile?.username) router.push(`/profile/${profile.username}`)
-  }
-
   return (
-    <header style={{ background: '#2c2a22', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 58, position: 'sticky', top: 0, zIndex: 100 }}>
-      <div onClick={() => router.push('/')}
-        style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 20, fontWeight: 700, color: '#c47d2a', letterSpacing: '0.05em', cursor: 'pointer' }}>
-        書架 <span style={{ color: '#f4f0e6', fontWeight: 400, fontSize: 13, marginLeft: 7, letterSpacing: '0.1em' }}>BOOKSHELF</span>
+    <header style={{
+      background: '#fff',
+      borderBottom: '1px solid #ebebeb',
+      padding: '0 40px',
+      height: 56,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100
+    }}>
+      <div onClick={() => router.push('/')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+        <span style={{ fontFamily: "'Sacramento', cursive", fontSize: 28, color: '#1c1c1a', lineHeight: 1 }}>bookshelf</span>
+        <span style={{ fontFamily: "'Quicksand', sans-serif", fontSize: 22, color: '#1c1c1a', fontWeight: 300 }}>.</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {user ? (
           <>
-            <button onClick={goProfile}
-              style={{ background: 'none', border: '0.5px solid #ffffff33', color: '#ccc', padding: '6px 14px', borderRadius: 4, fontSize: 13, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.04em' }}>
+            <button onClick={() => profile?.username && router.push(`/profile/${profile.username}`)}
+              style={{ background: 'none', border: 'none', fontSize: 12, color: '#888', cursor: 'pointer', fontFamily: "'Quicksand', sans-serif", fontWeight: 500 }}>
               {profile?.username || '我的書架'}
             </button>
             <button onClick={signOut}
-              style={{ background: 'none', border: '0.5px solid #ffffff22', color: '#888', padding: '6px 12px', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif" }}>
+              style={{ background: 'none', border: 'none', fontSize: 12, color: '#ccc', cursor: 'pointer', fontFamily: "'Quicksand', sans-serif" }}>
               登出
             </button>
             <button onClick={onPost}
-              style={{ background: '#c47d2a', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
-              ＋ 分享書單
+              style={{ background: '#1c1c1a', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'Quicksand', sans-serif", letterSpacing: '0.02em' }}>
+              ＋ 分享
             </button>
           </>
         ) : (
           <button onClick={() => router.push('/auth')}
-            style={{ background: '#c47d2a', color: 'white', border: 'none', padding: '7px 18px', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em' }}>
+            style={{ background: '#1c1c1a', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'Quicksand', sans-serif" }}>
             登入 / 註冊
           </button>
         )}
