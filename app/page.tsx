@@ -62,7 +62,7 @@ export default function Home() {
       setLikedIds(s => { const n = new Set(s); n.delete(postId); return n })
     } else {
       await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
-      setLikedIds(s => new Set([...s, postId]))
+      setLikedIds(s => new Set(Array.from(s).concat(postId)))
     }
     fetchPosts()
   }
@@ -75,7 +75,7 @@ export default function Home() {
       setBookmarkedIds(s => { const n = new Set(s); n.delete(postId); return n })
     } else {
       await supabase.from('bookmarks').insert({ user_id: user.id, post_id: postId })
-      setBookmarkedIds(s => new Set([...s, postId]))
+      setBookmarkedIds(s => new Set(Array.from(s).concat(postId))
     }
   }
 
