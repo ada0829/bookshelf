@@ -1,106 +1,144 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
+import Header from '@/components/Header'
+import BookCard from '@/components/BookCard'
+import type { User } from '@supabase/supabase-js'
 
-export default function AuthPage() {
+export default function ProfilePage() {
   const supabase = createClient()
   const router = useRouter()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const params = useParams()
+  const username = decodeURIComponent(params.username as string)
 
-  const USER_COLORS = ['#5a8a7a','#c46a50','#7a6aa0','#5a7a9a','#d4a853','#8a7060']
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [posts, setPosts] = useState<any[]>([])
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set())
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set())
+  const [tab, setTab] = useState<'posts' | 'bookmarks'>('posts')
+  const [loading, setLoading] = useState(true)
 
-  const handleSubmit = async () => {
-    setError(''); setLoading(true)
-    if (mode === 'signup') {
-      if (!username.trim()) { setError('請輸入用戶名稱'); setLoading(false); return }
-      const color = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)]
-      const { error: e } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { username: username.trim(), avatar_color: color, initials: username.trim()[0] } }
-      })
-      if (e) setError(e.message)
-      else setDone(true)
-    } else {
-      const { error: e } = await supabase.auth.signInWithPassword({ email, password })
-      if (e) setError('信箱或密碼錯誤')
-      else router.push('/')
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+  }, [])
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      const { data: prof } = await supabase.from('profiles').select('*').eq('username', username).single()
+      setProfile(prof)
+      if (prof) {
+        const { data: ps } = await supabase.from('posts_with_stats').select('*').eq('user_id', prof.id).order('created_at', { ascending: false })
+        setPosts(ps || [])
+      }
+      setLoading(false)
     }
-    setLoading(false)
+    load()
+  }, [username])
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('likes').select('post_id').eq('user_id', user.id)
+      .then(({ data }) => setLikedIds(new Set(data?.map(l => l.post_id) || [])))
+    supabase.from('bookmarks').select('post_id').eq('user_id', user.id)
+      .then(({ data }) => setBookmarkedIds(new Set(data?.map(b => b.post_id) || [])))
+  }, [user])
+
+  const handleLike = async (postId: number) => {
+    if (!user) return
+    const liked = likedIds.has(postId)
+    if (liked) {
+      await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', postId)
+      setLikedIds(s => { const n = new Set(s); n.delete(postId); return n })
+    } else {
+      await supabase.from('likes').insert({ user_id: user.id, post_id: postId })
+      setLikedIds(s => new Set([...s, postId]))
+    }
+    // refresh like counts
+    const { data: updated } = await supabase.from('posts_with_stats').select('*').eq('user_id', profile?.id).order('created_at', { ascending: false })
+    setPosts(updated || [])
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 32, fontWeight: 700, color: 'var(--amber)' }}>書架</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-lighter)', letterSpacing: '0.2em', marginTop: 4 }}>BOOKSHELF</div>
-        </div>
+  const handleBookmark = async (postId: number) => {
+    if (!user) return
+    const bm = bookmarkedIds.has(postId)
+    if (bm) {
+      await supabase.from('bookmarks').delete().eq('user_id', user.id).eq('post_id', postId)
+      setBookmarkedIds(s => { const n = new Set(s); n.delete(postId); return n })
+    } else {
+      await supabase.from('bookmarks').insert({ user_id: user.id, post_id: postId })
+      setBookmarkedIds(s => new Set([...s, postId]))
+    }
+  }
 
-        {done ? (
-          <div style={{ background: 'white', border: '0.5px solid var(--warm-border)', borderRadius: 8, padding: '2rem', textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>📬</div>
-            <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 18, marginBottom: 8 }}>驗證信已寄出</div>
-            <div style={{ fontSize: 13, color: 'var(--ink-light)', lineHeight: 1.7 }}>
-              請到 <strong>{email}</strong> 收取驗證信，點擊連結後即可登入。
-            </div>
-          </div>
+  const totalLikes = posts.reduce((s, p) => s + (p.like_count || 0), 0)
+  const totalComments = posts.reduce((s, p) => s + (p.comment_count || 0), 0)
+  const isOwn = user && profile && user.id === profile.id
+
+  return (
+    <>
+      <Header user={user} onPost={() => router.push('/')} />
+      <main style={{ maxWidth: 820, margin: '0 auto', padding: '1.5rem' }}>
+        <button onClick={() => router.push('/')}
+          style={{ background: 'none', border: '0.5px solid var(--warm-border)', color: 'var(--ink-light)', padding: '6px 14px', borderRadius: 4, fontSize: 12, cursor: 'pointer', marginBottom: '1rem', fontFamily: "'Noto Sans TC', sans-serif" }}>
+          ← 返回主頁
+        </button>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-lighter)' }}>載入中...</div>
+        ) : !profile ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-lighter)' }}>找不到此用戶</div>
         ) : (
-          <div style={{ background: 'white', border: '0.5px solid var(--warm-border)', borderRadius: 8, padding: '2rem' }}>
-            {/* Toggle */}
-            <div style={{ display: 'flex', marginBottom: '1.5rem', border: '0.5px solid var(--warm-border)', borderRadius: 6, overflow: 'hidden' }}>
-              {(['login', 'signup'] as const).map(m => (
-                <button key={m} onClick={() => { setMode(m); setError('') }}
-                  style={{ flex: 1, padding: '8px', border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: "'Noto Sans TC', sans-serif", letterSpacing: '0.05em', transition: 'all 0.15s',
-                    background: mode === m ? 'var(--ink)' : 'white',
-                    color: mode === m ? 'white' : 'var(--ink-light)' }}>
-                  {m === 'login' ? '登入' : '註冊'}
+          <>
+            {/* Profile header */}
+            <div style={{ background: 'white', border: '0.5px solid var(--warm-border)', borderRadius: 8, padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 500, background: profile.avatar_color + '22', color: profile.avatar_color, flexShrink: 0 }}>
+                {profile.initials}
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Noto Serif TC', serif", fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{profile.username}</div>
+                {isOwn && <div style={{ fontSize: 11, color: 'var(--ink-lighter)', marginBottom: 8 }}>{user?.email}</div>}
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {[['書單', posts.length], ['獲讚', totalLikes], ['留言', totalComments]].map(([l, n]) => (
+                    <div key={l} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 500 }}>{n}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-lighter)', letterSpacing: '0.06em' }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: '1.25rem', borderBottom: '0.5px solid var(--warm-border)' }}>
+              {([['posts', '分享的書單'], ...(isOwn ? [['bookmarks', '我的收藏']] : [])] as [string, string][]).map(([k, l]) => (
+                <button key={k} onClick={() => setTab(k as any)}
+                  style={{ padding: '8px 18px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === k ? 'var(--amber)' : 'transparent'}`, marginBottom: -1, fontSize: 13, cursor: 'pointer', color: tab === k ? 'var(--ink)' : 'var(--ink-light)', fontFamily: "'Noto Sans TC', sans-serif", fontWeight: tab === k ? 500 : 400, letterSpacing: '0.05em' }}>
+                  {l}
                 </button>
               ))}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {mode === 'signup' && (
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-light)', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>用戶名稱</label>
-                  <input value={username} onChange={e => setUsername(e.target.value)} placeholder="你想顯示的名稱" style={inputStyle} />
-                </div>
-              )}
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-light)', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>電子信箱</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={inputStyle} />
+            {posts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-lighter)' }}>還沒有分享任何書單 📚</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {posts.map(p => (
+                  <BookCard key={p.id} post={p}
+                    liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
+                    currentUser={user}
+                    onLike={() => handleLike(p.id)}
+                    onBookmark={() => handleBookmark(p.id)}
+                    onRefresh={() => {}}
+                  />
+                ))}
               </div>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-light)', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>密碼</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={mode === 'signup' ? '至少 6 個字元' : '••••••'} style={inputStyle}
-                  onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-              </div>
-
-              {error && <div style={{ fontSize: 12, color: 'var(--coral)', padding: '8px 12px', background: '#faeae4', borderRadius: 4 }}>{error}</div>}
-
-              <button onClick={handleSubmit} disabled={loading}
-                style={{ marginTop: 4, padding: '11px', background: 'var(--ink)', color: 'white', border: 'none', borderRadius: 5, fontSize: 14, fontFamily: "'Noto Sans TC', sans-serif", fontWeight: 500, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1, letterSpacing: '0.05em', transition: 'background 0.15s' }}>
-                {loading ? '處理中...' : mode === 'login' ? '登入' : '建立帳號'}
-              </button>
-            </div>
-          </div>
+            )}
+          </>
         )}
-      </div>
-    </div>
+      </main>
+    </>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '9px 12px',
-  border: '0.5px solid var(--warm-border)', borderRadius: 5,
-  fontFamily: "'Noto Sans TC', sans-serif", fontSize: 13,
-  color: 'var(--ink)', background: 'var(--cream)', outline: 'none',
-  boxSizing: 'border-box',
 }
