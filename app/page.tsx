@@ -7,7 +7,7 @@ import BookCard from '@/components/BookCard'
 import PostModal from '@/components/PostModal'
 import type { User } from '@supabase/supabase-js'
 
-const COVERS = ['📚','🌿','🌊','🌙','🔮','🏔','🌸','🦋','☀️','🌎','🍂','🕯']
+const COVERS = ['📚','🌿','🌊','🌙','🔮','🏔','🌸','🦋','☀️','🌎']
 const SPINES = ['#d4a853','#5a8a7a','#c46a50','#7a6aa0','#5a7a9a','#8a7060']
 
 export default function Home() {
@@ -87,16 +87,24 @@ export default function Home() {
     <>
       <Header user={user} onPost={() => setShowModal(true)} />
       <Toolbar search={search} onSearch={setSearch} category={category} onCategory={setCategory} sort={sort} onSort={setSort} />
-      <main style={{ maxWidth: 820, margin: '0 auto', padding: '1.5rem' }}>
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '40px 48px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>載入書單中...</div>
+          <div style={{ textAlign: 'center', padding: '4rem', color: '#c8c8c4', fontSize: 12, letterSpacing: '0.1em' }}>Loading...</div>
         ) : posts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#b8b0a0' }}>還沒有書單，來第一個分享吧 📚</div>
+          <div style={{ textAlign: 'center', padding: '4rem' }}>
+            <div style={{ fontFamily: "'EB Garamond', serif", fontSize: 22, color: '#c8c8c4', marginBottom: 8 }}>No books yet</div>
+            <div style={{ fontSize: 11, color: '#c8c8c4', letterSpacing: '0.08em' }}>Be the first to share a book</div>
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {posts.map(p => (
-              <BookCard key={p.id} post={p} liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
-                currentUser={user} onLike={() => handleLike(p.id)} onBookmark={() => handleBookmark(p.id)} onRefresh={fetchPosts} />
+              <BookCard key={p.id} post={p}
+                liked={likedIds.has(p.id)} bookmarked={bookmarkedIds.has(p.id)}
+                currentUser={user}
+                onLike={() => handleLike(p.id)}
+                onBookmark={() => handleBookmark(p.id)}
+                onRefresh={fetchPosts}
+              />
             ))}
           </div>
         )}
