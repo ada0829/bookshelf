@@ -1,28 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600&family=Lora:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500&display=swap');
 
 :root {
-  --bg: #f9f8f6;
+  --bg: #f7f5f0;
   --white: #ffffff;
-  --ink: #1c1c1a;
-  --ink2: #555;
-  --ink3: #aaa;
-  --ink4: #ccc;
-  --border: #ebebeb;
-  --border2: #e0e0e0;
-  --gold: #f0a500;
-  --red: #e85d4a;
-  --tag-bg: #f4f4f2;
+  --ink: #181816;
+  --ink2: #5a5a56;
+  --ink3: #9a9a96;
+  --ink4: #c8c8c4;
+  --border: #e8e4dc;
+  --accent: #181816;
+  --tag-bg: #f0ede6;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Quicksand', sans-serif;
+  font-family: 'Inter', sans-serif;
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
+.serif { font-family: 'EB Garamond', serif; }
+
+::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+::placeholder { color: var(--ink4); }
